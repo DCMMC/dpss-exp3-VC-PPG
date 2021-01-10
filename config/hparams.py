@@ -33,18 +33,18 @@ class Hparams:
         shuffle_buffer = 128
         shuffle = True
         learning_rate = 1e-3
-        num_workers = 16
+        num_workers = 0
 
     class TrainToMany:
         dev_set_rate = 0.1
         test_set_rate = 0.05
         epochs = 50
         train_batch_size = 32
-        test_batch_size = 8
+        test_batch_size = 32
         shuffle_buffer = 128
         shuffle = True
         learning_rate = 1e-3
-        num_workers = 16
+        num_workers = 0
 
     class BLSTMConversionModel:
         lstm_hidden = 256

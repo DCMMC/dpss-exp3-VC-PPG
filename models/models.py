@@ -79,7 +79,7 @@ class BLSTMResConversionModel(nn.Module):
         # project to the output dimension
         initial_outs = self.out_projection(blstm2_out)
         residual = self.resnet(initial_outs)
-        final_outs = _  # define the final outputs here
+        final_outs = initial_outs + residual  # define the final outputs here
         return final_outs
 
 
@@ -89,15 +89,20 @@ class ResidualNet(nn.Module):
     for predicted Mel-spectrogram. It's widely accepted that
     this can help generate much more accurate Mel-spectrogram.
     """
-    def __init__(self, channels, other_params):
+    def __init__(self, in_channels, out_channels):
         """
         :param channels: equal to dimension of the Mel-spectrogram
         :param other_params: parameters for the definition of your residual net
         """
         super(ResidualNet, self).__init__()
-        self.channels = channels
         # define your module components below
         # e.g. self.dense_layer = nn.Linear(in_features=channels, out_features=channels)
+        self.model = nn.Sequential(
+                nn.Linear(in_channels, 1024),
+                nn.Dropout(.5),
+                nn.Linear(1024, out_channels),
+                nn.Dropout(.5),
+                nn.ReLU())
 
     def forward(self, x):
         """
@@ -105,7 +110,8 @@ class ResidualNet(nn.Module):
         :return: output improved mel-spectrogram
         """
         # define your inference process below
-        pass
+        out = self.model(x)
+        return out
 
 
 class BLSTMToManyConversionModel(nn.Module):
@@ -154,11 +160,11 @@ class BLSTMToManyConversionModel(nn.Module):
         # look up speaker embedding
         spk_embds = self.spk_embed_net(spk_inds)
         # add speaker embd to the inputs
-        blstm1_inputs = _ # give your implementation here
+        blstm1_inputs = x + self.emb_proj1(spk_embds) # give your implementation here
         # pass to the 1st BLSTM layer
         blstm1_outs, _ = self.blstm1(blstm1_inputs)
         # add speaker embd to the outputs of 1st lstm
-        blstm2_inputs = _ # give your implementation here
+        blstm2_inputs = blstm1_outs + self.emb_proj2(spk_embds) # give your implementation here
         # pass to the 2nd BLSTM layer
         blstm2_outs, _ = self.blstm2(blstm2_inputs)
         # project to the output dimension
@@ -183,6 +189,7 @@ class SPKEmbedding(nn.Module):
         super(SPKEmbedding, self).__init__()
         # define your module components below
         # e.g. self.embedding_table = ...
+        self.embedding_table = nn.Embedding(num_spk, embd_dim)
 
     def forward(self, spk_inds):
         """
@@ -193,7 +200,7 @@ class SPKEmbedding(nn.Module):
         """
         # define your inference process below
         # e.g. return self.embedding_table(spk_inds)
-        pass
+        return self.embedding_table(spk_inds)
 
 
 class CustomToOneConversionModel(nn.Module):
