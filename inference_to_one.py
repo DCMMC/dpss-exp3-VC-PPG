@@ -5,7 +5,7 @@ import tensorflow as tf
 import argparse
 
 
-from models import BLSTMConversionModel
+from models import BLSTMConversionModel, BLSTMResConversionModel
 from config import Hparams
 from utils import load_wav, _preemphasize, melspectrogram, logf0, wav2unnormalized_mfcc, \
     inv_mel_spectrogram, inv_preemphasize, save_wav, softmax, lf0_normailze
@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--src_wav', type=str, help='source wav file path')
     parser.add_argument('--ckpt', type=str, help='model ckpt path')
     parser.add_argument('--save_dir', type=str, help='synthesized wav save directory')
+    parser.add_argument('--resnet', action='store_true', help='if enable resnet')
     args = parser.parse_args()
     # 0.
     src_wav_arr = load_wav(args.src_wav)
@@ -27,6 +28,7 @@ def main():
     mfcc_pl = tf.placeholder(dtype=tf.float32,
                              shape=[None, None, 3 * hps.Audio.n_mfcc],
                              name='mfcc_pl')
+
     ppg_extractor = CNNBLSTMClassifier(out_dims=hps.Audio.ppg_dim,
                                        n_cnn=ppg_extractor_hps.n_cnn,
                                        cnn_hidden=ppg_extractor_hps.cnn_hidden,
@@ -61,9 +63,15 @@ def main():
     vc_inputs = np.expand_dims(vc_inputs, axis=1)  # [time, batch, dim]
 
     # 4. setup vc model and do the inference
-    model = BLSTMConversionModel(in_channels=hps.Audio.ppg_dim + 2,
-                                 out_channels=hps.Audio.num_mels,
-                                 lstm_hidden=hps.BLSTMConversionModel.lstm_hidden)
+    if not args.resnet:
+        model = BLSTMConversionModel(in_channels=hps.Audio.ppg_dim + 2,
+                                     out_channels=hps.Audio.num_mels,
+                                     lstm_hidden=hps.BLSTMConversionModel.lstm_hidden)
+    else:
+        model = BLSTMResConversionModel(in_channels=hps.Audio.ppg_dim + 2,
+                                     out_channels=hps.Audio.num_mels,
+                                     lstm_hidden=hps.BLSTMConversionModel.lstm_hidden,
+                                     other_params=hps.Audio.num_mels)
     device = torch.device('cpu')
     model.load_state_dict(torch.load(args.ckpt, map_location=device))
     model.eval()
